@@ -14,7 +14,8 @@ const userSchema=new Schema({
     },
     role:{
         type:String,
-        enum:['user','admin']
+        enum:['user','admin'],
+        default:'user'
     },
     isEmailVerified:{
         type:Boolean,
@@ -44,6 +45,4 @@ const userSchema=new Schema({
     timestamps:true
 })
 
-const User=model('user',userSchema)
-
-export default User
+export const User=model('user',userSchema)

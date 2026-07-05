@@ -1,10 +1,12 @@
-import {z} from 'zod'
+import { z } from "zod";
 
-const registerSchema=z.object({
-    email:z.email(),
-    password:z.password().min(6),
-    name:z.name().min(3)
-})
+export const registerSchema = z.object({
+    name:z.string().min(3),
+    email:z.string().email(),
+    password:z.string().min(6),
+});
 
-
-export default registerSchema
+export const loginSchema=z.object({
+    email:z.string().email(),
+    password:z.string().min(6),
+});
