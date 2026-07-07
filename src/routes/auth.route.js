@@ -1,5 +1,5 @@
 import {Router} from 'express'
-import { loginHandler, refreshHandler, registerHandler, verifyEmailHandler, logoutHandler, forgotPasswordHandler, resetPasswordHandler} from '../controllers/auth/auth.controller.js'
+import { loginHandler, refreshHandler, registerHandler, verifyEmailHandler, logoutHandler, forgotPasswordHandler, resetPasswordHandler, googleAuthStartHandler, googleAuthCallbackHandler} from '../controllers/auth/auth.controller.js'
 
 const router=Router()
 
@@ -10,6 +10,9 @@ router.post('/refresh',refreshHandler)
 router.post('/logout',logoutHandler)
 router.post('/forgot-password',forgotPasswordHandler)
 router.post('/reset-password',resetPasswordHandler)
+router.get('/google',googleAuthStartHandler)
+router.get('/google/callback',googleAuthCallbackHandler)
+
 
 
 export default router

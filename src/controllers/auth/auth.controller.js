@@ -6,7 +6,18 @@ import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../..
 import {loginSchema, registerSchema} from "./auth.schema.js"
 import jwt from "jsonwebtoken";
 import crypto from 'crypto'
+import { OAuth2Client } from "google-auth-library";
 
+
+const client=()=>{
+    const clientId=process.env.GOOGLE_CLIENT_ID
+    const clientSecret=process.env.GOOGLE_CLIENT_SECRET
+    const redirectUrl=process.env.GOOGLE_REDIRECT_URL
+    if(!clientId || !clientSecret || !redirectUrl){
+        throw new Error("Google OAuth environment variables are missing")
+    }
+    return new OAuth2Client(clientId,clientSecret,redirectUrl)
+}
 
 export const registerHandler=async(req,res)=>{
     try{
@@ -378,4 +389,123 @@ export const resetPasswordHandler=async(req,res)=>{
             message:"Internal Server Error"
         });
     }
+}
+
+export const googleAuthStartHandler=async(req,res)=>{
+    try{
+        const oauthClient=client();
+
+        const url=oauthClient.generateAuthUrl({
+            access_type:"offline",
+            prompt:"consent",
+            scope:["openid","email","profile"]
+        });
+
+        return res.redirect(url);
+    } 
+    catch(error){
+        console.log(error);
+
+        return res.status(500).json({
+            success:false,
+            message:"Internal Server Error"
+        });
+    }
+}
+
+export const googleAuthCallbackHandler=async(req,res)=>{
+    const {code}=req.query
+    if(!code){
+        return res.status(400).json({
+            success: false,
+            message: "Authorization code is missing",
+        });
+    }
+
+    try{
+        const oauthClient=client();
+        const { tokens }=await oauthClient.getToken(code);
+        if(!tokens.id_token){
+            return res.status(400).json({
+                success:false,
+                message:"No goole id token is present"
+            })
+        }
+
+        const ticket=await oauthClient.verifyIdToken({
+            idToken:tokens.id_token,
+            audience:process.env.GOOGLE_CLIENT_ID
+        })
+
+        const payload=ticket.getPayload()
+        if (!payload) {
+            return res.status(400).json({
+                success:false,
+                message:"Invalid Google token",
+            });
+        }
+
+
+        const email=payload.email
+        const emailVerified=payload.email_verified
+        if(!email || !emailVerified){
+            return res.status(400).json({
+                success:false,
+                message:"google email is not verified"
+            })
+        }
+
+        const normalizedEmail=email.toLowerCase().trim()
+        let user=await User.findOne({email:normalizedEmail})
+        if(!user){
+            const randomPassword=crypto.randomBytes(16).toString('hex')
+            const passwordHash=await hashPassword(randomPassword)
+
+            user=await User.create({
+                email:normalizedEmail,
+                password: passwordHash,
+                role:'user',
+                isEmailVerified:true,
+                twoFactorEnabled:false
+            })
+        }
+        else{
+            if(!user.isEmailVerified){
+                user.isEmailVerified=true
+                await user.save()
+            }
+        }
+
+        const accessToken=createAccessToken(user._id,user.role,user.tokenVersion)
+        const refreshToken=createRefreshToken(user._id,user.tokenVersion)
+        const isProd=process.env.NODE_ENV==="production";
+        res.cookie("refreshToken",refreshToken,{
+            httpOnly:true,
+            secure:isProd,
+            sameSite:'lax',
+            maxAge:7*24*60*60*1000
+        })
+        return res.status(200).json({
+            success:true,
+            message:"Google Login Successfully",
+            accessToken,
+            user:{
+                id:user._id,
+                email:user.email,
+                role:user.role,
+                isEmailVerified:user.isEmailVerified,
+                twoFactorEnabled:user.twoFactorEnabled
+            }
+        })
+
+    } 
+    catch(error){
+       console.log(error);
+
+        return res.status(500).json({
+            success:false,
+            message:"Internal Server Error"
+        }); 
+    }
+    
 }

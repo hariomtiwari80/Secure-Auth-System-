@@ -1,6 +1,5 @@
 
 
-
 export const requireRole=(role)=>{
     return (req,res,next)=>{
         const authUser=req.user
