@@ -10,7 +10,7 @@ app.use(express.json())
 app.use(cookieParser())
 
 app.get('/',(req,res)=>{
-    res.send("Hello I am Okay")
+    res.send("Welcome to the Authentication API")
 })
 
 app.use('/auth',authRouter)
